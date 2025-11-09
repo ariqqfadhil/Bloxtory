@@ -8,7 +8,7 @@ module.exports = {
   },
   output: {
     filename: '[name].bundle.js',
-    path: path.resolve(__dirname, 'dist'),
+    path: path.resolve(__dirname, 'docs'),
   },
   module: {
     rules: [
@@ -24,14 +24,8 @@ module.exports = {
     }),
     new CopyWebpackPlugin({
       patterns: [
-        {
-          from: path.resolve(__dirname, 'src/public/'),
-          to: path.resolve(__dirname, 'dist/'),
-        },
-        {
-          from: path.resolve(__dirname, 'src/manifest.json'),
-          to: path.resolve(__dirname, 'dist/manifest.json'),
-        },
+        { from: path.resolve(__dirname, 'src/public'), to: '' },
+        { from: path.resolve(__dirname, 'src/manifest.json'), to: '' },
       ],
     }),
   ],
