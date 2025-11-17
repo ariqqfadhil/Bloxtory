@@ -1649,3 +1649,251 @@ button:disabled {
     font-size: 0.9rem;
   }
 }
+
+/* Saved Stories Page Styles */
+.saved-stories-page {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.page-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.page-header h1 {
+  font-size: 2rem;
+  color: #333;
+  margin-bottom: 10px;
+}
+
+.page-header p {
+  color: #666;
+  font-size: 1rem;
+}
+
+.message-area {
+  margin: 20px 0;
+  padding: 15px;
+  border-radius: 8px;
+  display: none;
+}
+
+.success-message {
+  background: #d4edda;
+  color: #155724;
+  padding: 10px 15px;
+  border-radius: 5px;
+  border-left: 4px solid #28a745;
+}
+
+.info-message {
+  background: #d1ecf1;
+  color: #0c5460;
+  padding: 10px 15px;
+  border-radius: 5px;
+  border-left: 4px solid #17a2b8;
+}
+
+.error {
+  background: #f8d7da;
+  color: #721c24;
+  padding: 10px 15px;
+  border-radius: 5px;
+  border-left: 4px solid #dc3545;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  margin: 40px 0;
+}
+
+.empty-state p {
+  font-size: 1.2rem;
+  color: #666;
+  margin: 10px 0;
+}
+
+.info-text {
+  color: #999;
+  font-size: 0.9rem;
+}
+
+.btn-primary {
+  display: inline-block;
+  padding: 12px 24px;
+  background: #4a90e2;
+  color: white;
+  text-decoration: none;
+  border-radius: 8px;
+  margin-top: 20px;
+  transition: background 0.3s;
+}
+
+.btn-primary:hover {
+  background: #357abd;
+}
+
+.btn-danger {
+  background: #dc3545;
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background 0.3s;
+}
+
+.btn-danger:hover {
+  background: #c82333;
+}
+
+/* Pending Stories Section */
+.pending-section {
+  margin-top: 60px;
+  padding-top: 30px;
+  border-top: 2px solid #e9ecef;
+}
+
+.pending-section h2 {
+  font-size: 1.5rem;
+  color: #333;
+  margin-bottom: 10px;
+}
+
+.pending-list {
+  display: grid;
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.pending-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  background: #fff3cd;
+  border-left: 4px solid #ffc107;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.pending-content {
+  flex: 1;
+}
+
+.pending-content p {
+  margin: 5px 0;
+  color: #333;
+}
+
+.pending-content small {
+  display: block;
+  color: #666;
+  font-size: 0.85rem;
+  margin-top: 5px;
+}
+
+.delete-pending-btn {
+  background: #dc3545;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  transition: background 0.3s;
+}
+
+.delete-pending-btn:hover {
+  background: #c82333;
+}
+
+/* Save button on story cards */
+.save-story-btn {
+  background: #28a745;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background 0.3s;
+  margin-left: 10px;
+}
+
+.save-story-btn:hover {
+  background: #218838;
+}
+
+.delete-saved-btn {
+  background: #dc3545;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background 0.3s;
+}
+
+.delete-saved-btn:hover {
+  background: #c82333;
+}
+
+/* Offline banner */
+.offline-banner {
+  background: #fff3cd;
+  color: #856404;
+  padding: 15px 20px;
+  text-align: center;
+  border-bottom: 2px solid #ffc107;
+  position: sticky;
+  top: 0;
+  z-index: 999;
+}
+
+.offline-banner p {
+  margin: 0;
+  font-weight: 500;
+}
+
+/* Connection status banner */
+.connection-banner {
+  padding: 15px 20px;
+  text-align: center;
+  font-weight: 500;
+  position: fixed;
+  top: 60px;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  animation: slideDown 0.3s ease;
+}
+
+.connection-banner.online {
+  background: #d4edda;
+  color: #155724;
+  border-bottom: 2px solid #28a745;
+}
+
+.connection-banner.offline {
+  background: #f8d7da;
+  color: #721c24;
+  border-bottom: 2px solid #dc3545;
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}

@@ -57,8 +57,6 @@ class IDBHelper {
   }
 
   // STORIES CRUD (Synced Stories)
-
-  /* Simpan multiple stories ke IndexedDB (dari API) */
   async saveStories(stories) {
     const db = await this.openDB();
     const tx = db.transaction([STORES.STORIES], "readwrite");
@@ -73,10 +71,9 @@ class IDBHelper {
     });
 
     await Promise.all(promises);
-    console.log(`✅ Saved ${stories.length} stories to IndexedDB`);
+    console.log(`✅ Saved/Updated ${stories.length} stories to IndexedDB`);
   }
 
-  /* Ambil semua stories dari IndexedDB */
   async getAllStories() {
     const db = await this.openDB();
     return new Promise((resolve, reject) => {
@@ -85,6 +82,19 @@ class IDBHelper {
       const request = store.getAll();
 
       request.onsuccess = () => resolve(request.result || []);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  /* Ambil story berdasarkan ID */
+  async getStoryById(id) {
+    const db = await this.openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction([STORES.STORIES], "readonly");
+      const store = tx.objectStore(STORES.STORIES);
+      const request = store.get(id);
+
+      request.onsuccess = () => resolve(request.result || null);
       request.onerror = () => reject(request.error);
     });
   }

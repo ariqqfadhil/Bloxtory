@@ -16,56 +16,28 @@ class HomePresenter {
 
     try {
       const stories = await this._fetchStoriesWithFallback();
-
-      // 2. Simpan ke IndexedDB
-      if (stories.length > 0) {
-        await IDBHelper.saveStories(stories);
-      }
-
-      // 3. Render stories
       this._allStories = stories;
       this.view.renderStories(stories);
-
-      // 4. Setup event listeners
       this._setupEventListeners();
 
-      // 5. Trigger background sync jika ada pending stories
       if (navigator.onLine) {
         BackgroundSync.syncPendingStories();
       }
     } catch (error) {
-      console.error(error);
+      console.error("❌ Error loading stories:", error);
       this.view.showError(
-        "An error occurred while loading the story. Please try again later.",
+        "Failed to load stories. Please check your connection and try again.",
       );
     }
   }
 
-  /* Fetch stories dengan fallback ke IndexedDB jika offline */
   async _fetchStoriesWithFallback() {
     try {
-      // Coba ambil dari API
       const apiStories = await this.model.getStories({ location: 1 });
-
-      if (apiStories.length > 0) {
-        console.log("✅ Stories loaded from API");
-        return apiStories;
-      }
-
-      // Jika API tidak return data, fallback ke IndexedDB
-      throw new Error("No data from API");
+      console.log("✅ Stories loaded from API:", apiStories.length);
+      return apiStories;
     } catch (error) {
-      console.warn("⚠️ Failed to fetch from API, using IndexedDB:", error);
-
-      // Fallback: ambil dari IndexedDB
-      const cachedStories = await IDBHelper.getAllStories();
-
-      if (cachedStories.length > 0) {
-        console.log("✅ Stories loaded from IndexedDB (offline mode)");
-        this.view.showOfflineIndicator?.(); // Optional method
-        return cachedStories;
-      }
-
+      console.warn("⚠️ Failed to fetch from API:", error.message);
       return [];
     }
   }
@@ -76,7 +48,7 @@ class HomePresenter {
     this.view.onStoryClick((event) => {
       const mapBtn = event.target.closest(".view-on-map-btn");
       const img = event.target.closest(".story-photo");
-      const deleteBtn = event.target.closest(".delete-story-btn");
+      const saveBtn = event.target.closest(".save-story-btn");
 
       if (mapBtn) {
         const lat = mapBtn.dataset.lat;
@@ -90,10 +62,12 @@ class HomePresenter {
         return;
       }
 
-      // Delete story
-      if (deleteBtn) {
-        const storyId = deleteBtn.dataset.id;
-        this._handleDeleteStory(storyId);
+      // Handle save story
+      if (saveBtn) {
+        const storyData = JSON.parse(
+          saveBtn.dataset.story.replace(/&apos;/g, "'"),
+        );
+        this._handleSaveStory(storyData);
         return;
       }
     });
@@ -138,83 +112,81 @@ class HomePresenter {
     }
   }
 
-  /* Handle search stories */
   async _handleSearch(query) {
-    if (!query.trim()) {
-      // Jika kosong, tampilkan semua
+    const trimmedQuery = query.trim();
+    
+    if (!trimmedQuery) {
       this.view.renderStories(this._allStories);
       return;
     }
 
-    const results = await IDBHelper.searchStories(query);
+    const lowerQuery = trimmedQuery.toLowerCase();
+    const results = this._allStories.filter(
+      (story) =>
+        story.name.toLowerCase().includes(lowerQuery) ||
+        story.description.toLowerCase().includes(lowerQuery),
+    );
+
     this.view.renderStories(results);
-    this.view.showSearchInfo?.(query, results.length);
+    this.view.showSearchInfo?.(trimmedQuery, results.length);
   }
 
-  /* Handle sort stories */
   async _handleSort(order) {
-    const sortedStories = await IDBHelper.sortStoriesByDate(order);
+    const sortedStories = [...this._allStories].sort((a, b) => {
+      const dateA = new Date(a.createdAt).getTime();
+      const dateB = new Date(b.createdAt).getTime();
+      return order === "newest" ? dateB - dateA : dateA - dateB;
+    });
+
     this._allStories = sortedStories;
     this.view.renderStories(sortedStories);
   }
 
-  /* Handle filter by location */
   async _handleFilterLocation(showOnlyWithLocation) {
-    if (showOnlyWithLocation) {
-      const storiesWithLocation = await IDBHelper.getStoriesWithLocation();
-      this.view.renderStories(storiesWithLocation);
-    } else {
-      this.view.renderStories(this._allStories);
-    }
+    const stories = showOnlyWithLocation
+      ? this._allStories.filter((story) => story.lat && story.lon)
+      : this._allStories;
+    
+    this.view.renderStories(stories);
   }
 
-  /* Handle refresh data dari API */
   async _handleRefresh() {
     this.view.showLoading();
 
     try {
       const stories = await this.model.getStories({ location: 1 });
 
-      if (stories.length > 0) {
-        // Clear IndexedDB dan simpan data baru
-        await IDBHelper.clearAllStories();
-        await IDBHelper.saveStories(stories);
-        this._allStories = stories;
-        this.view.renderStories(stories);
-        this.view.showSuccessMessage?.("✅ Data refreshed successfully!");
-      } else {
+      if (stories.length === 0) {
         throw new Error("No data received");
       }
-    } catch (error) {
-      console.error("Refresh failed:", error);
-      this.view.showError("Failed to refresh data. Using cached data.");
 
-      // Tampilkan data dari IndexedDB
-      const cachedStories = await IDBHelper.getAllStories();
-      this._allStories = cachedStories;
-      this.view.renderStories(cachedStories);
+      this._allStories = stories;
+      this.view.renderStories(stories);
+      this.view.showSuccessMessage?.("✅ Data refreshed successfully!");
+    } catch (error) {
+      console.error("❌ Refresh failed:", error);
+      this.view.showError("Failed to refresh data. Please try again.");
     }
   }
 
-  /* Handle delete story */
-  async _handleDeleteStory(storyId) {
-    const confirmed = confirm("Are you sure you want to delete this story?");
-    if (!confirmed) return;
-
+  async _handleSaveStory(story) {
     try {
-      // Hapus dari IndexedDB
-      await IDBHelper.deleteStory(storyId);
+      const existingStories = await IDBHelper.getAllStories();
+      const isAlreadySaved = existingStories.some((s) => s.id === story.id);
 
-      // Update tampilan
-      this._allStories = this._allStories.filter(
-        (story) => story.id !== storyId,
+      if (isAlreadySaved) {
+        this.view.showSuccessMessage?.("ℹ️ Story already saved!");
+        return;
+      }
+
+      await IDBHelper.saveStories([story]);
+      this.view.showSuccessMessage?.(
+        "✅ Story saved for offline access! Check 'Saved Stories' page.",
       );
-      this.view.renderStories(this._allStories);
-
-      this.view.showSuccessMessage?.("✅ Story deleted successfully!");
+      console.log("✅ Story saved:", story.id);
     } catch (error) {
-      console.error("Delete failed:", error);
-      this.view.showError("Failed to delete story. Please try again.");
+      console.error("❌ Error saving story:", error);
+      this.view.showError?.("Failed to save story. Please try again.");
     }
   }
 }

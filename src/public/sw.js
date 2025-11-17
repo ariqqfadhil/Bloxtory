@@ -1,10 +1,9 @@
-const CACHE_VERSION = "bloxtory-v3"; // Increment version
+const CACHE_VERSION = "bloxtory-v3";
 const APP_SHELL_CACHE = `${CACHE_VERSION}-app-shell`;
 const DYNAMIC_CACHE = `${CACHE_VERSION}-dynamic`;
 const API_CACHE = `${CACHE_VERSION}-api`;
 const IMAGE_CACHE = `${CACHE_VERSION}-images`;
 
-// Assets yang akan di-cache untuk offline (App Shell)
 const APP_SHELL_ASSETS = [
   "/",
   "/index.html",
@@ -17,7 +16,7 @@ const APP_SHELL_ASSETS = [
 
 const OFFLINE_IMAGE = "/images/bloxtory_logo.png";
 
-// INSTALL EVENT - Cache App Shell
+// INSTALL EVENT
 self.addEventListener("install", (event) => {
   console.log("Service Worker: Installing...");
   event.waitUntil(
@@ -31,7 +30,7 @@ self.addEventListener("install", (event) => {
   self.skipWaiting();
 });
 
-// ACTIVATE EVENT - Clean Old Caches
+// ACTIVATE EVENT
 self.addEventListener("activate", (event) => {
   console.log("Service Worker: Activating...");
   event.waitUntil(
@@ -52,17 +51,15 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-// FETCH EVENT - FIXED: Online vs Offline Strategy
+// FETCH EVENT
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Filter invalid requests
   if (!request.url.startsWith("http")) return;
   if (url.protocol === "chrome-extension:") return;
   if (request.method !== "GET") return;
 
-  // ===== STRATEGY 1: Cache First for Local Static Assets =====
   if (
     APP_SHELL_ASSETS.includes(url.pathname) ||
     request.destination === "style" ||
@@ -72,8 +69,6 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // ===== STRATEGY 2: FIXED - Network First for API Images (Online) =====
-  // Cache only as fallback when offline
   if (
     url.hostname === "story-api.dicoding.dev" &&
     (request.destination === "image" || url.pathname.includes("/images/"))
@@ -82,7 +77,6 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // ===== STRATEGY 3: Network First for API JSON Data =====
   if (
     url.hostname === "story-api.dicoding.dev" &&
     request.destination !== "image"
@@ -91,19 +85,15 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // ===== STRATEGY 4: Cache First for Local Images =====
   if (request.destination === "image") {
     event.respondWith(cacheFirst(request, DYNAMIC_CACHE));
     return;
   }
 
-  // ===== DEFAULT: Stale While Revalidate =====
   event.respondWith(staleWhileRevalidate(request, DYNAMIC_CACHE));
 });
 
 // CACHING STRATEGIES
-
-/* Cache First - Prioritas cache, fallback ke network */
 async function cacheFirst(request, cacheName) {
   try {
     const cache = await caches.open(cacheName);
@@ -137,7 +127,6 @@ async function cacheFirst(request, cacheName) {
   }
 }
 
-/* Network First - Prioritas network, fallback ke cache */
 async function networkFirst(request, cacheName) {
   try {
     const cache = await caches.open(cacheName);
@@ -173,11 +162,9 @@ async function networkFirst(request, cacheName) {
 
 async function networkFirstImages(request, cacheName, offlineFallback) {
   try {
-    // Try network first
     const networkResponse = await fetch(request);
 
     if (networkResponse && networkResponse.ok) {
-      // Cache successful response for offline use
       const cache = await caches.open(cacheName);
       cache.put(request, networkResponse.clone());
 
@@ -185,10 +172,8 @@ async function networkFirstImages(request, cacheName, offlineFallback) {
       return networkResponse;
     }
 
-    // If response not ok, try cache
     throw new Error("Network response not ok");
   } catch (error) {
-    // Network failed, try cache
     console.log("⚠️ Network failed, trying cache for:", request.url);
 
     const cache = await caches.open(cacheName);
@@ -199,13 +184,11 @@ async function networkFirstImages(request, cacheName, offlineFallback) {
       return cached;
     }
 
-    // No cache available, return fallback
     console.log("❌ No cache, using fallback image");
     return getFallbackImage(offlineFallback);
   }
 }
 
-/* Stale While Revalidate - Return cache immediately, update in background */
 async function staleWhileRevalidate(request, cacheName) {
   try {
     const cache = await caches.open(cacheName);
@@ -227,7 +210,6 @@ async function staleWhileRevalidate(request, cacheName) {
   }
 }
 
-/* Get fallback image for offline mode */
 async function getFallbackImage(fallbackPath) {
   const cache = await caches.open(APP_SHELL_CACHE);
   const fallback = await cache.match(fallbackPath);
@@ -236,7 +218,6 @@ async function getFallbackImage(fallbackPath) {
     return fallback;
   }
 
-  // Return transparent 1x1 pixel as last resort
   return new Response(
     new Blob(
       [
@@ -375,64 +356,106 @@ async function getAuthToken() {
   return null;
 }
 
-// PUSH NOTIFICATION
 self.addEventListener("push", (event) => {
-  try {
-    const raw = event.data ? event.data.text() : "";
-    if (raw instanceof Promise) {
-      event.waitUntil(raw.then((resolved) => showParsedNotification(resolved)));
-      return;
-    } else {
-      return event.waitUntil(showParsedNotification(raw));
+  console.log("📬 Push notification received!");
+
+  let notificationData = {
+    title: "Bloxtory",
+    body: "Ada cerita baru!",
+    icon: "/images/bloxtory_logo.png",
+    badge: "/images/bloxtory_logo.png",
+    data: {
+      url: "/#/home",
+    },
+  };
+
+  if (event.data) {
+    try {
+      const payload = event.data.json();
+      console.log("📦 Payload received (JSON):", payload);
+
+      notificationData = {
+        title: payload.title || "Bloxtory",
+        body:
+          payload.options?.body ||
+          payload.body ||
+          payload.message ||
+          "Ada cerita baru!",
+        icon:
+          payload.options?.icon || payload.icon || "/images/bloxtory_logo.png",
+        badge: "/images/bloxtory_logo.png",
+        data: {
+          url: payload.options?.data?.url || payload.url || "/#/home",
+          storyId: payload.options?.data?.storyId || payload.id || null,
+        },
+      };
+    } catch (jsonError) {
+      try {
+        const textData = event.data.text();
+        console.log("📦 Payload received (Text):", textData);
+
+        notificationData.body = textData || "Ada cerita baru!";
+      } catch (textError) {
+        console.error("❌ Error parsing push data:", textError);
+      }
     }
-  } catch (err) {
-    console.error("Error membaca data push:", err);
-    const data = {
-      title: "Bloxtory Notification",
-      body: "Ada cerita baru di Bloxtory!",
-    };
-    event.waitUntil(showNotification(data));
   }
+
+  const options = {
+    body: notificationData.body,
+    icon: notificationData.icon,
+    badge: notificationData.badge,
+    vibrate: [200, 100, 200],
+    data: notificationData.data,
+    tag: "bloxtory-notification",
+    requireInteraction: false,
+    actions: [
+      {
+        action: "open",
+        title: "Lihat Cerita",
+        icon: "/images/bloxtory_logo.png",
+      },
+      {
+        action: "close",
+        title: "Tutup",
+      },
+    ],
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(notificationData.title, options),
+  );
 });
 
-function showParsedNotification(raw) {
-  let data = {};
-  try {
-    data = JSON.parse(raw);
-  } catch {
-    data = {
-      title: "Bloxtory Notification",
-      body: raw || "Ada cerita baru di Bloxtory!",
-    };
-  }
-  return showNotification(data);
-}
-
-function showNotification(data) {
-  const title = data.title || "Bloxtory Notification";
-  const options = {
-    body: data.body || "Ada cerita baru di Bloxtory!",
-    icon: data.icon || "/images/bloxtory_logo.png",
-    badge: "/images/bloxtory_logo.png",
-    data: { url: data.url || "#/home" },
-    actions: [{ action: "open_url", title: "Lihat Detail" }],
-  };
-  return self.registration.showNotification(title, options);
-}
-
+// NOTIFICATION CLICK HANDLER
 self.addEventListener("notificationclick", (event) => {
+  console.log("🔔 Notification clicked, action:", event.action);
+
   event.notification.close();
-  const urlToOpen = new URL(event.notification.data.url, self.location.origin)
-    .href;
+
+  if (event.action === "close") {
+    return;
+  }
+
+  const urlToOpen = event.notification.data.url || "/#/home";
+
   event.waitUntil(
     clients
       .matchAll({ type: "window", includeUncontrolled: true })
       .then((clientList) => {
         for (const client of clientList) {
-          if (client.url === urlToOpen && "focus" in client)
-            return client.focus();
+          if (client.url.includes(self.location.origin) && "focus" in client) {
+            return client.focus().then(() => {
+              if ("navigate" in client) {
+                return client.navigate(urlToOpen);
+              }
+            });
+          }
         }
-        if (clients.openWindow) return clients.openWindow(urlToOpen);
+
+        if (clients.openWindow) {
+          return clients.openWindow(urlToOpen);
+        }
       }),
   );
 });

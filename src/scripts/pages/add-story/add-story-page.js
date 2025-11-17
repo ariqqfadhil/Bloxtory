@@ -1,3 +1,5 @@
+// src\scripts\pages\add-story\add-story-page.js
+
 import AddStoryPresenter from "../../presenters/add-story-presenter";
 import LeafletConfig from "../../utils/leaflet-config";
 

@@ -3,6 +3,8 @@
 import StoryApi from "../data/api";
 import IDBHelper from "../utils/idb-helper";
 import BackgroundSync from "../utils/background-sync";
+import Validator from "../utils/validator";
+import ErrorHandler from "../utils/error-handler";
 
 class AddStoryPresenter {
   constructor({ form, cameraElements }) {
@@ -186,37 +188,50 @@ class AddStoryPresenter {
   async _onSubmit(e) {
     e.preventDefault();
 
-    const description = this._form.querySelector("#description").value.trim();
+    const description = Validator.sanitizeInput(
+      this._form.querySelector("#description").value
+    );
     const photo =
       this._photoFile ||
       (this._camera.photoInput && this._camera.photoInput.files[0]);
     const lat = this._form.querySelector("#lat").value;
     const lon = this._form.querySelector("#lon").value;
 
-    if (!description || !photo) {
-      alert("Description and photo are required. Location is optional.");
+    if (!description) {
+      ErrorHandler.showUserError("Description is required");
       return;
     }
 
-    // ========== ADVANCED: OFFLINE MODE SUPPORT ==========
+    if (!photo) {
+      ErrorHandler.showUserError("Photo is required");
+      return;
+    }
+
+    if (!Validator.isValidImageFile(photo)) {
+      ErrorHandler.showUserError("Invalid image file. Max size: 5MB");
+      return;
+    }
+
+    if (lat && lon && !Validator.isValidCoordinate(lat, lon)) {
+      ErrorHandler.showUserError("Invalid coordinates");
+      return;
+    }
+
     const isOnline = BackgroundSync.isOnline();
 
     if (!isOnline) {
-      // Jika offline, simpan ke IndexedDB untuk di-sync nanti
       await this._saveOfflineStory({ description, photo, lat, lon });
       return;
     }
 
-    // Jika online, kirim langsung ke API
     try {
       await StoryApi.addStory({ description, photo, lat, lon });
       alert("✅ Story successfully added!");
       this._resetForm();
       window.location.hash = "/home";
     } catch (error) {
-      console.error("Error when adding a story:", error);
+      console.error("❌ Error adding story:", error);
 
-      // Jika API error tapi photo sudah di-upload, simpan ke pending
       const userChoice = confirm(
         "Failed to add story to server. Do you want to save it for later sync when online?",
       );
@@ -229,12 +244,8 @@ class AddStoryPresenter {
     }
   }
 
-  /**
-   * Simpan story untuk offline sync (ADVANCED)
-   */
   async _saveOfflineStory({ description, photo, lat, lon }) {
     try {
-      // Convert photo to base64 untuk storage
       const photoBase64 = await this._convertPhotoToBase64(photo);
 
       const storyData = {
@@ -252,34 +263,23 @@ class AddStoryPresenter {
       );
 
       this._resetForm();
-
-      // Register background sync
       BackgroundSync.registerSync();
-
       window.location.hash = "/home";
     } catch (error) {
-      console.error("Failed to save offline story:", error);
+      console.error("❌ Failed to save offline story:", error);
       alert("Failed to save story. Please try again.");
     }
   }
 
-  /**
-   * Convert photo File to base64 string
-   */
   async _convertPhotoToBase64(file) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-
       reader.onload = () => resolve(reader.result);
       reader.onerror = () => reject(reader.error);
-
       reader.readAsDataURL(file);
     });
   }
 
-  /**
-   * Reset form setelah submit
-   */
   _resetForm() {
     this._form.reset();
     this._photoFile = null;

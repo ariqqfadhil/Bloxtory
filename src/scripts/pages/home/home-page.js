@@ -131,7 +131,6 @@ const HomePage = {
           return;
         }
 
-        // CRITICAL FIX: Add data attribute for offline mode
         const offlineClass = !isOnline ? "offline-mode" : "";
 
         const html = stories
@@ -173,11 +172,12 @@ const HomePage = {
                       </button>`
                     : ""
                 }
+                <!-- ✅ NEW: Tombol Save untuk IndexedDB -->
                 <button
-                  class="delete-story-btn"
-                  data-id="${story.id}"
-                  aria-label="Delete this story">
-                  🗑️ Delete
+                  class="save-story-btn"
+                  data-story='${JSON.stringify(story).replace(/'/g, "&apos;")}'
+                  aria-label="Save this story for offline access">
+                  💾 Save
                 </button>
               </div>
             </div>
@@ -189,17 +189,14 @@ const HomePage = {
         listContainer.innerHTML = html;
         this.applyFadeIn();
 
-        // CRITICAL: Force immediate image loading when online
         if (isOnline) {
           this._forceImageLoad();
         }
       },
 
-      // NEW: Force immediate image loading
       _forceImageLoad() {
         const images = listContainer.querySelectorAll(".story-photo");
         images.forEach((img) => {
-          // Force browser to load image immediately
           if (img.complete) {
             img.classList.add("loaded");
           } else {
