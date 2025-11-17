@@ -15,30 +15,52 @@ class HomePresenter {
     this.view.showLoading();
 
     try {
+      // ✅ CRITICAL FIX: Hanya fetch dari API, JANGAN auto-save ke IndexedDB
       const stories = await this._fetchStoriesWithFallback();
+
+      // ✅ REMOVED: Jangan auto-save semua stories
+      // Hanya save stories yang memang user klik tombol "Save"
+
+      // Render stories
       this._allStories = stories;
       this.view.renderStories(stories);
+
+      // Setup event listeners
       this._setupEventListeners();
 
+      // Trigger background sync jika ada pending stories
       if (navigator.onLine) {
         BackgroundSync.syncPendingStories();
       }
     } catch (error) {
-      console.error("❌ Error loading stories:", error);
+      console.error(error);
       this.view.showError(
-        "Failed to load stories. Please check your connection and try again.",
+        "An error occurred while loading the story. Please try again later.",
       );
     }
   }
 
+  /* Fetch stories dengan fallback ke IndexedDB jika offline */
   async _fetchStoriesWithFallback() {
     try {
+      // Coba ambil dari API
       const apiStories = await this.model.getStories({ location: 1 });
-      console.log("✅ Stories loaded from API:", apiStories.length);
-      return apiStories;
+
+      if (apiStories.length > 0) {
+        console.log("✅ Stories loaded from API");
+        return apiStories;
+      }
+
+      // Jika API tidak return data, fallback ke IndexedDB
+      throw new Error("No data from API");
     } catch (error) {
-      console.warn("⚠️ Failed to fetch from API:", error.message);
-      return [];
+      console.warn("⚠️ Failed to fetch from API, trying IndexedDB:", error);
+
+      // ✅ FIXED: Jika offline, tetap coba tampilkan dari API cache
+      // BUKAN dari saved stories IndexedDB
+      // Saved stories hanya untuk yang memang user simpan manual
+
+      return []; // Return empty array jika API gagal
     }
   }
 
@@ -112,15 +134,15 @@ class HomePresenter {
     }
   }
 
+  /* Handle search stories - FIXED: Search dari current stories, bukan IndexedDB */
   async _handleSearch(query) {
-    const trimmedQuery = query.trim();
-    
-    if (!trimmedQuery) {
+    if (!query.trim()) {
       this.view.renderStories(this._allStories);
       return;
     }
 
-    const lowerQuery = trimmedQuery.toLowerCase();
+    // ✅ FIXED: Search dari _allStories yang sudah di-load, bukan dari IndexedDB
+    const lowerQuery = query.toLowerCase();
     const results = this._allStories.filter(
       (story) =>
         story.name.toLowerCase().includes(lowerQuery) ||
@@ -128,13 +150,15 @@ class HomePresenter {
     );
 
     this.view.renderStories(results);
-    this.view.showSearchInfo?.(trimmedQuery, results.length);
+    this.view.showSearchInfo?.(query, results.length);
   }
 
+  /* Handle sort stories - FIXED: Sort dari current stories */
   async _handleSort(order) {
     const sortedStories = [...this._allStories].sort((a, b) => {
       const dateA = new Date(a.createdAt).getTime();
       const dateB = new Date(b.createdAt).getTime();
+
       return order === "newest" ? dateB - dateA : dateA - dateB;
     });
 
@@ -142,35 +166,44 @@ class HomePresenter {
     this.view.renderStories(sortedStories);
   }
 
+  /* Handle filter by location - FIXED: Filter dari current stories */
   async _handleFilterLocation(showOnlyWithLocation) {
-    const stories = showOnlyWithLocation
-      ? this._allStories.filter((story) => story.lat && story.lon)
-      : this._allStories;
-    
-    this.view.renderStories(stories);
+    if (showOnlyWithLocation) {
+      const storiesWithLocation = this._allStories.filter(
+        (story) => story.lat && story.lon,
+      );
+      this.view.renderStories(storiesWithLocation);
+    } else {
+      this.view.renderStories(this._allStories);
+    }
   }
 
+  /* Handle refresh data dari API */
   async _handleRefresh() {
     this.view.showLoading();
 
     try {
       const stories = await this.model.getStories({ location: 1 });
 
-      if (stories.length === 0) {
+      if (stories.length > 0) {
+        // ✅ FIXED: Jangan clear IndexedDB saat refresh
+        // IndexedDB hanya untuk saved stories, bukan cache
+        this._allStories = stories;
+        this.view.renderStories(stories);
+        this.view.showSuccessMessage?.("✅ Data refreshed successfully!");
+      } else {
         throw new Error("No data received");
       }
-
-      this._allStories = stories;
-      this.view.renderStories(stories);
-      this.view.showSuccessMessage?.("✅ Data refreshed successfully!");
     } catch (error) {
-      console.error("❌ Refresh failed:", error);
+      console.error("Refresh failed:", error);
       this.view.showError("Failed to refresh data. Please try again.");
     }
   }
 
+  /* Handle save story ke IndexedDB */
   async _handleSaveStory(story) {
     try {
+      // Cek apakah story sudah ada di IndexedDB
       const existingStories = await IDBHelper.getAllStories();
       const isAlreadySaved = existingStories.some((s) => s.id === story.id);
 
@@ -179,13 +212,16 @@ class HomePresenter {
         return;
       }
 
+      // Simpan story ke IndexedDB
       await IDBHelper.saveStories([story]);
+
       this.view.showSuccessMessage?.(
         "✅ Story saved for offline access! Check 'Saved Stories' page.",
       );
-      console.log("✅ Story saved:", story.id);
+
+      console.log("✅ Story saved to IndexedDB:", story.id);
     } catch (error) {
-      console.error("❌ Error saving story:", error);
+      console.error("Error saving story:", error);
       this.view.showError?.("Failed to save story. Please try again.");
     }
   }

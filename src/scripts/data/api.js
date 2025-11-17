@@ -6,25 +6,24 @@ const StoryApi = {
     return localStorage.getItem(TOKEN_KEY) || null;
   },
 
-  _getHeaders() {
-    const token = this._getToken();
-    return token ? { Authorization: `Bearer ${token}` } : {};
-  },
-
   async getStories({ location = 1 } = {}) {
     try {
+      const token = this._getToken();
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
       const response = await fetch(`${BASE_URL}/stories?location=${location}`, {
-        headers: this._getHeaders(),
+        headers,
       });
 
+      const json = await response.json();
+
       if (!response.ok) {
-        const json = await response.json();
-        throw new Error(json.message || `HTTP ${response.status}`);
+        throw new Error(json.message || "Fetch stories failed");
       }
 
-      const { listStory = [] } = await response.json();
+      const { listStory = [] } = json;
 
-      return listStory.map((item) => ({
+      const stories = listStory.map((item) => ({
         id: item.id,
         name: item.name,
         description: item.description,
@@ -33,47 +32,46 @@ const StoryApi = {
         lon: item.lon,
         createdAt: item.createdAt,
       }));
+
+      return stories;
     } catch (error) {
-      console.error("❌ Error fetching stories:", error);
-      throw error;
+      console.error(error);
+      return [];
     }
   },
 
+  // Tambahan method untuk mengirim story baru (POST)
   async addStory({ description, photo, lat, lon }) {
-    const token = this._getToken();
-    if (!token) {
-      throw new Error("Authentication required. Please login first.");
-    }
-
-    if (!description?.trim()) {
-      throw new Error("Description is required");
-    }
-
-    if (!photo) {
-      throw new Error("Photo is required");
-    }
-
     try {
+      const token = this._getToken();
+      if (!token)
+        throw new Error(
+          "Token tidak ditemukan. Silakan login terlebih dahulu.",
+        );
+
       const formData = new FormData();
-      formData.append("description", description.trim());
+      formData.append("description", description);
       formData.append("photo", photo);
-      if (lat) formData.append("lat", lat);
-      if (lon) formData.append("lon", lon);
+      formData.append("lat", lat);
+      formData.append("lon", lon);
 
       const response = await fetch(`${BASE_URL}/stories`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
         body: formData,
       });
 
+      const result = await response.json();
+
       if (!response.ok) {
-        const result = await response.json();
-        throw new Error(result.message || `HTTP ${response.status}`);
+        throw new Error(result.message || "Gagal menambahkan story");
       }
 
-      return await response.json();
+      return result;
     } catch (error) {
-      console.error("❌ Error adding story:", error);
+      console.error("Error saat menambahkan story:", error);
       throw error;
     }
   },
