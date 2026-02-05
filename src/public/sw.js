@@ -10,7 +10,6 @@ const APP_SHELL_ASSETS = [
   "/app.bundle.js",
   "/images/logo.png",
   "/images/bloxtory_logo.png",
-  "/favicon.png",
   "/manifest.json",
 ];
 
